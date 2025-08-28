@@ -1,0 +1,333 @@
+import React, { useCallback, useMemo, useRef, useState, useEffect } from "react";
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import { Plus, Upload, Image as ImageIcon, Trash2, CheckCircle2 } from "lucide-react";
+import { motion } from "framer-motion";
+
+/**
+ * 단일 파일 React 컴포넌트
+ * - Tailwind + shadcn/ui 사용
+ * - 스케치 구조: 발문 1개, 꼬리문제 N개
+ * - 각 행: [드롭존 이미지] [이미지 기반 html+LaTeX 에디터] [미리보기 이미지]
+ * - 하단: 문제 추가, commit 버튼
+ * - 백엔드 연동 없이 UI 상호작용 및 mock 처리
+ */
+
+// 간단한 유틸: base64로 이미지 미리보기
+function useImagePreview() {
+  const [preview, setPreview] = useState<string | null>(null);
+  const onFile = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => setPreview(String(reader.result));
+    reader.readAsDataURL(file);
+  }, []);
+  const clear = useCallback(() => setPreview(null), []);
+  return { preview, onFile, clear };
+}
+
+function DropBox({ label, onDrop }: { label: string; onDrop: (file: File) => void }) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleFiles = (files: FileList | null) => {
+    if (!files || !files.length) return;
+    onDrop(files[0]);
+  };
+
+  return (
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragOver(false);
+        handleFiles(e.dataTransfer.files);
+      }}
+      className={`flex h-44 w-full cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed p-3 text-sm transition ${
+        dragOver ? "border-primary bg-primary/5" : "border-muted-foreground/30 hover:bg-muted/40"
+      }`}
+      onClick={() => inputRef.current?.click()}
+    >
+      <div className="flex flex-col items-center gap-2 text-center">
+        <Upload className="h-6 w-6" />
+        <span className="font-medium">{label}</span>
+        <span className="text-xs text-muted-foreground">이미지 파일을 드래그하거나 클릭해 업로드</span>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => handleFiles(e.target.files)}
+      />
+    </div>
+  );
+}
+
+function HtmlLatexEditor({
+  value,
+  onChange,
+  compact,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  compact?: boolean;
+}) {
+  const [tab, setTab] = useState("edit");
+
+  return (
+    <Card className={`rounded-2xl ${compact ? "h-44" : "h-44"}`}>
+      <Tabs value={tab} onValueChange={setTab} className="h-full">
+        <TabsList className="m-2">
+          <TabsTrigger value="edit">html + LaTeX 작성</TabsTrigger>
+          <TabsTrigger value="preview">미리보기</TabsTrigger>
+        </TabsList>
+        <TabsContent value="edit" className="h-[9.5rem] px-3 pb-3">
+          <Textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={"예) 1) <b>집합</b> \\n- 두 수의 합: $a+b$\\n- 분수: $\\frac{3}{5}$"}
+            className="h-full resize-none rounded-xl"
+          />
+        </TabsContent>
+        <TabsContent value="preview" className="h-[9.5rem] px-3 pb-3">
+          <ScrollArea className="h-full rounded-xl border p-3">
+            {/* 미리보기: 간단 렌더. MathJax/KaTeX 미연동 환경용으로 텍스트 렌더 + 위험 허용 */}
+            <div
+              className="prose prose-sm max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: value.replaceAll("\n", "<br/>") }}
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              * 실수식 렌더링(TeX)은 프로덕션에서 KaTeX/MathJax 연동 권장
+            </p>
+          </ScrollArea>
+        </TabsContent>
+      </Tabs>
+    </Card>
+  );
+}
+
+// 단일 문제 행
+function ProblemRow({
+  index,
+  data,
+  onChange,
+  onRemove,
+}: {
+  index: number;
+  data: ProblemItem;
+  onChange: (d: ProblemItem) => void;
+  onRemove: () => void;
+}) {
+  const left = useImagePreview();
+  const right = useImagePreview();
+
+  useEffect(() => {
+    // 외부에서 저장된 preview를 복구할 수도 있도록
+    if (data.leftPreview && !left.preview) left.setPreview?.(data.leftPreview);
+    if (data.rightPreview && !right.preview) right.setPreview?.(data.rightPreview);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // setPreview를 노출하기 위해 살짝 해킹
+  (left as any).setPreview = (v: string) => (left as any).setPreviewState?.(v);
+  (right as any).setPreview = (v: string) => (right as any).setPreviewState?.(v);
+
+  // 내부 state 보관해두고 commit 시 상위 전달
+  useEffect(() => {
+    onChange({ ...data, leftPreview: left.preview ?? null, rightPreview: right.preview ?? null });
+  }, [left.preview, right.preview]);
+
+  return (
+    <Card className="rounded-2xl shadow-sm">
+      <CardHeader className="py-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">{index + 1}. 꼬리문제</CardTitle>
+          <Button variant="ghost" size="icon" onClick={onRemove}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-12 gap-4">
+          {/* 드롭존 */}
+          <div className="col-span-12 md:col-span-4">
+            {left.preview ? (
+              <div className="relative h-44 w-full overflow-hidden rounded-2xl border">
+                <img src={left.preview} alt="left" className="h-full w-full object-contain" />
+              </div>
+            ) : (
+              <DropBox label="드롭한 이미지" onDrop={left.onFile} />
+            )}
+          </div>
+
+          {/* 에디터 */}
+          <div className="col-span-12 md:col-span-5">
+            <HtmlLatexEditor
+              value={data.html ?? ""}
+              onChange={(v) => onChange({ ...data, html: v })}
+              compact
+            />
+          </div>
+
+          {/* 미리보기 이미지 */}
+          <div className="col-span-12 md:col-span-3">
+            {right.preview ? (
+              <div className="relative h-44 w-full overflow-hidden rounded-2xl border">
+                <img src={right.preview} alt="preview" className="h-full w-full object-contain" />
+              </div>
+            ) : (
+              <DropBox label="미리보기 이미지" onDrop={right.onFile} />
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+type ProblemItem = {
+  id: string;
+  html: string;
+  leftPreview: string | null;
+  rightPreview: string | null;
+};
+
+export default function WorksheetBuilder() {
+  // 발문 상태
+  const promptImage = useImagePreview();
+  const [promptHtml, setPromptHtml] = useState<string>("");
+  const previewImage = useImagePreview();
+
+  // 꼬리문제 리스트
+  const [items, setItems] = useState<ProblemItem[]>([
+    { id: crypto.randomUUID(), html: "", leftPreview: null, rightPreview: null },
+  ]);
+
+  const addItem = () =>
+    setItems((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), html: "", leftPreview: null, rightPreview: null },
+    ]);
+  const removeItem = (id: string) => setItems((prev) => prev.filter((x) => x.id !== id));
+  const updateItem = (id: string, data: ProblemItem) =>
+    setItems((prev) => prev.map((x) => (x.id === id ? data : x)));
+
+  // Mock commit
+  const [committing, setCommitting] = useState(false);
+  const [committed, setCommitted] = useState(false);
+
+  const onCommit = async () => {
+    setCommitting(true);
+    setCommitted(false);
+    // 실제로는 서버에 업로드/저장
+    await new Promise((r) => setTimeout(r, 900));
+    setCommitting(false);
+    setCommitted(true);
+    setTimeout(() => setCommitted(false), 2000);
+  };
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-6 p-6">
+      <motion.h1 initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="text-2xl font-bold">
+        문제 생성 홈
+      </motion.h1>
+
+      {/* 발문 */}
+      <Card className="rounded-2xl">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">발문</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-12 gap-4">
+            {/* 드롭존 */}
+            <div className="col-span-12 md:col-span-4">
+              {promptImage.preview ? (
+                <div className="relative h-44 w-full overflow-hidden rounded-2xl border">
+                  <img src={promptImage.preview} className="h-full w-full object-contain" />
+                </div>
+              ) : (
+                <DropBox label="드롭한 이미지" onDrop={promptImage.onFile} />
+              )}
+            </div>
+
+            {/* html+latex */}
+            <div className="col-span-12 md:col-span-5">
+              <HtmlLatexEditor value={promptHtml} onChange={setPromptHtml} />
+            </div>
+
+            {/* 미리보기 이미지 */}
+            <div className="col-span-12 md:col-span-3">
+              {previewImage.preview ? (
+                <div className="relative h-44 w-full overflow-hidden rounded-2xl border">
+                  <img src={previewImage.preview} className="h-full w-full object-contain" />
+                </div>
+              ) : (
+                <DropBox label="미리보기 이미지" onDrop={previewImage.onFile} />
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 꼬리문제 섹션 */}
+      <Card className="rounded-2xl">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">꼬리문제</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[28rem] pr-2">
+            <div className="space-y-4">
+              {items.map((it, idx) => (
+                <ProblemRow
+                  key={it.id}
+                  index={idx}
+                  data={it}
+                  onChange={(d) => updateItem(it.id, d)}
+                  onRemove={() => removeItem(it.id)}
+                />)
+              )}
+            </div>
+          </ScrollArea>
+
+          <div className="mt-4 flex items-center justify-between">
+            <Button onClick={addItem} className="rounded-2xl">
+              <Plus className="mr-2 h-4 w-4" /> 문제 추가
+            </Button>
+            <div className="flex items-center gap-3">
+              {committed && (
+                <span className="flex items-center gap-1 text-sm text-green-600">
+                  <CheckCircle2 className="h-4 w-4" /> 저장 완료
+                </span>
+              )}
+              <Button onClick={onCommit} disabled={committing} className="rounded-2xl">
+                {committing ? "저장 중..." : "commit"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 하단 가이드 */}
+      <Card className="rounded-2xl border-dashed">
+        <CardContent className="space-y-2 p-4 text-sm text-muted-foreground">
+          <p>
+            • 이 화면은 프론트엔드 UI 데모입니다. 실제 OCR/수식 렌더링, 이미지 저장, 버전 관리 등은 API 연동이 필요합니다.
+          </p>
+          <p>
+            • 수식 렌더링은 프로덕션에서 KaTeX/MathJax를 적용하세요. (예: 입력 값의 $a+b$ 를 렌더)
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

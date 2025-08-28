@@ -80,7 +80,7 @@ export const requestHtmlFromVLM = async (file) => {
   }
   
   try {
-    // JSON 코드 블록 제거 후 파싱 시도
+    // JSON 코드 블록 제거 후 파싱 시도 : 청우님 여기에요. 여기가 수식 깨지는 부분 replace 해주는 부분이에요.
     const cleanContent = content.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "").replace(/&amp;/g, "&").trim();
     const parsedContent = JSON.parse(cleanContent);
 

@@ -82,6 +82,10 @@ export function KaTexRenderer({ children, className = "", displayMode = false })
     }
   }, [children, displayMode]);
 
+  // katex 렌더링 확인용
+  // TODO : 추후 제거 + json에 html 결과 로드해야한다면 여기서 조정
+  console.log(containerRef.current?.innerHTML);
+
   return <div ref={containerRef} className={className} />;
 }
 

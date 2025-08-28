@@ -81,7 +81,7 @@ export const requestHtmlFromVLM = async (file) => {
   
   try {
     // JSON 코드 블록 제거 후 파싱 시도
-    const cleanContent = content.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "").trim();
+    const cleanContent = content.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "").replace(/&amp;/g, "&").trim();
     const parsedContent = JSON.parse(cleanContent);
 
     

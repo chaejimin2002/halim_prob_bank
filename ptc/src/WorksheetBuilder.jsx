@@ -80,8 +80,9 @@ export default function WorksheetBuilder() {
         instruction_en: promptHtml.english || "",
         answer: promptAnswer.korean || "",
         answer_en: promptAnswer.english || "",
-        hint: null,
-        hint_en: null
+        hint: "",
+        hint_en: "",
+        type: "short"
       };
       problems.push(parentProblem);
       
@@ -96,8 +97,9 @@ export default function WorksheetBuilder() {
             instruction_en: item.q.html.english || "",
             answer: item.a.html.korean || "",
             answer_en: item.a.html.english || "",
-            hint: null,
-            hint_en: null
+            hint: "",
+            hint_en: "",
+            type: "short"
           };
           problems.push(childProblem);
         }
@@ -114,8 +116,9 @@ export default function WorksheetBuilder() {
             instruction_en: item.q.html.english || "",
             answer: item.a.html.korean || "",
             answer_en: item.a.html.english || "",
-            hint: null,
-            hint_en: null
+            hint: "",
+            hint_en: "",
+            type: "short"
           };
           problems.push(problem);
         }

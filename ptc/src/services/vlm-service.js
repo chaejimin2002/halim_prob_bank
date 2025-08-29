@@ -85,7 +85,7 @@ export const requestHtmlFromVLM = async (file) => {
   
   try {
     // JSON 코드 블록 제거 후 파싱 시도 : 청우님 여기에요. 여기가 수식 깨지는 부분 replace 해주는 부분이에요.
-    const cleanContent = content.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "").replace(/&amp;/g, "&").trim();
+    const cleanContent = content.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "").trim();
     const parsedContent = JSON.parse(cleanContent);
 
     
@@ -104,6 +104,15 @@ export const requestHtmlFromVLM = async (file) => {
   const m = typeof content === "string" ? content.match(fence) : null;
   if (m) content = m[1];
   content = content.replace(/^```(?:html)?/i, "").replace(/```$/, "").trim();
+  content = content.replace(/&amp;/g, "&");
+  content = content.replace(/<div class="formula">/, "");
+  content = content.replace(/<\/div>/, "");
+  content = content.replace(/<html>/, "");
+  content = content.replace(/<\/html>/, "");
+  content = content.replace(/<body>/, "");
+  content = content.replace(/<\/body>/, "");
+  content = content.replace(/<img src="([^"]+)"/, '');
+  content = content.replace(/\/>/, '');
   
   // 폴백 시에는 한국어만 제공
   return {

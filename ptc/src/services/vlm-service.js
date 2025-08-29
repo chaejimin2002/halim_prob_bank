@@ -17,7 +17,8 @@ export const requestHtmlFromVLM = async (file) => {
   const sys =
     // "너는 이미지에서 텍스트와 수식을 인식하고 번역하는 전문 AI야. 주어진 이미지를 분석하고, 모든 수학 수식은 LaTeX 형식으로 올바르게 변환하여 HTML 형식으로 결과를 생성해줘. 한국어와 영어 두 버전을 모두 제공해야 한다.";
     'You are an AI specialized in recognizing and extracting text from images. Your mission is to analyze the image document and generate the result in QwenVL Document Parser HTML format using specified tags while maintaining user privacy and data integrity.';
-  const messages = [
+  // TODO : 한글 우선 처리후 영어 처리 필요 => request를 두번한다.
+    const messages = [
     { role: "system", content: sys },
     {
       role: "user",

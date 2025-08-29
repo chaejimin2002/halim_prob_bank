@@ -15,8 +15,8 @@ export const requestHtmlFromVLM = async (file) => {
 
   // 2) 한글과 영어 번역을 동시에 요청하는 시스템 메시지
   const sys =
-    "너는 이미지에서 텍스트와 수식을 인식하고 번역하는 전문 AI야. 주어진 이미지를 분석하고, 모든 수학 수식은 LaTeX 형식으로 올바르게 변환하여 HTML 형식으로 결과를 생성해줘. 한국어와 영어 두 버전을 모두 제공해야 한다.";
-
+    // "너는 이미지에서 텍스트와 수식을 인식하고 번역하는 전문 AI야. 주어진 이미지를 분석하고, 모든 수학 수식은 LaTeX 형식으로 올바르게 변환하여 HTML 형식으로 결과를 생성해줘. 한국어와 영어 두 버전을 모두 제공해야 한다.";
+    'You are an AI specialized in recognizing and extracting text from images. Your mission is to analyze the image document and generate the result in QwenVL Document Parser HTML format using specified tags while maintaining user privacy and data integrity.';
   const messages = [
     { role: "system", content: sys },
     {
@@ -28,13 +28,14 @@ export const requestHtmlFromVLM = async (file) => {
         },
         {
           type: "text",
-          text: `이미지에서 문제를 추출하고, 다음 JSON 형식으로 응답해줘 json을 앞에 붙이지 말고, 문제의 번호는 생략해줘:
-{
-  "korean": "한국어 HTML 내용",
-  "english": "English HTML content"
-}
+          text: 'QwenVL HTML',
+//           `이미지에서 문제를 추출하고, 다음 JSON 형식으로 응답해줘 json을 앞에 붙이지 말고, 문제의 번호는 생략해줘:
+// {
+//   "korean": "한국어 HTML 내용",
+//   "english": "English HTML content"
+// }
 
-수학 수식은 LaTeX로 변환하고, 내용을 정확히 번역해줘.`,
+// 수학 수식은 LaTeX로 변환하고, 내용을 정확히 번역해줘.`,
         },
       ],
     },
@@ -42,10 +43,10 @@ export const requestHtmlFromVLM = async (file) => {
 
   // 4) OpenAI 호환 chat.completions 요청
   const body = {
-    model: 'Qwen/Qwen2.5-VL-72B-Instruct',         
+    model: 'Qwen/Qwen2.5-VL-32B-Instruct-AWQ',         
     messages,
-    temperature: 0.2,
-    response_format: { type: "json_object" }
+    temperature: 0,
+    // response_format: { type: "json_object" }
   };
 
   const controller = new AbortController();
@@ -72,6 +73,8 @@ export const requestHtmlFromVLM = async (file) => {
   }
 
   const json = await res.json();
+
+  console.log(json);
 
   // 5) 응답에서 JSON 파싱 시도
   let content = json?.choices?.[0]?.message?.content ?? "";
